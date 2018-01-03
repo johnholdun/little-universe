@@ -63,9 +63,11 @@ const loadImage = (url, object) => {
   image.src = url;
 }
 
+const VIEWPORT_WIDTH = 2560;
+const VIEWPORT_HEIGHT = 1440;
+
 const INTERVAL = 16;
-// Minimum number of pixels from player origin to edge of viewport before scrolling
-const VIEWPORT_EDGE_BUFFER = 200;
+
 // keys are (horizontal,vertical) where (1,1) is down/right
 // values are degrees, where 0 is straight up
 const DIRECTIONS = {
@@ -85,13 +87,6 @@ const TEXT_SPEED = 40;
 
 let canvas;
 let ctx;
-
-const dim = {
-  viewport: {
-    w: 2560,
-    h: 1440,
-  }
-};
 
 const KEYS = {
   32: "mark",
@@ -252,7 +247,7 @@ const tick = function() {
 
   applySpeed(game.entities[0]);
 
-  constrainViewport();
+  setViewport();
 
   draw();
 
@@ -418,45 +413,11 @@ const applySpeed = (entity) => {
   entity.y += entity.speedY;
 };
 
-// The screen will only scroll if a "safe area" surrounding the player reaches
-// the edge of the viewport. When this happens, the screen will scroll just
-// enough for the safe area to return entirely into view.
-const constrainViewport = () => {
-  const { viewport } = game;
+const setViewport = () => {
+  const player = getPlayer();
 
-  const { x, y, width, height } = getSafeAreaCoords();
-
-  if (viewport.x > x) {
-    viewport.x = x;
-  }
-
-  if (viewport.x < x - (dim.viewport.w - width)) {
-    viewport.x = x - (dim.viewport.w - width);
-  }
-
-  if (viewport.y > y) {
-    viewport.y = y;
-  }
-
-  if (viewport.y < y - (dim.viewport.h - height)) {
-    viewport.y = y - (dim.viewport.h - height);
-  }
-};
-
-const getSafeAreaCoords = () => {
-  const user = game.entities[0];
-
-  // The dimensions of the safe area are the full size of the character sprite
-  // plus a buffer on all sides.
-  const width = user.width + VIEWPORT_EDGE_BUFFER * 2;
-  const height = user.height + VIEWPORT_EDGE_BUFFER * 2;
-
-  // The safe area is centered on the user; these are the coordinates of its
-  // top-left corner.
-  const x = user.x - width / 2;
-  const y = user.y - height / 2;
-
-  return { x, y, width, height };
+  game.viewport.x = player.x - player.originX - (VIEWPORT_WIDTH / 2 - player.width);
+  game.viewport.y = player.y - player.originY - (VIEWPORT_HEIGHT / 3 * 2 - player.height);
 };
 
 const drawZone = () => {
@@ -511,19 +472,9 @@ const drawEntityDebug = (entity) => {
     entity.footprintW * SCALE_FACTOR,
     entity.footprintH * SCALE_FACTOR
   );
-
-  if (entity.id === "player") {
-    const { x, y, width, height } = getSafeAreaCoords();
-
-    ctx.strokeStyle = "yellow";
-    ctx.strokeRect(
-      Math.floor((x - viewport.x) * SCALE_FACTOR),
-      Math.floor((y - viewport.y) * SCALE_FACTOR),
-      Math.floor(width * SCALE_FACTOR),
-      Math.floor(height * SCALE_FACTOR)
-    );
-  }
 }
+
+const getPlayer = () => (game.entities.filter(z => z.id === "player")[0]);
 
 const getZone = () => (game.zones.filter(z => z.id === game.viewport.zone)[0]);
 
@@ -652,13 +603,13 @@ document.addEventListener("visibilitychange", (e) => {
 addEventListener("load", function() {
   canvas = document.querySelector("#canvas");
 
-  const dimension = Math.floor(SCALE_FACTOR * dim.viewport.w);
+  const dimension = Math.floor(SCALE_FACTOR * VIEWPORT_WIDTH);
 
   canvas.setAttribute("width", dimension);
-  canvas.setAttribute("height", Math.ceil(dimension * dim.viewport.h / dim.viewport.w));
+  canvas.setAttribute("height", Math.ceil(dimension * VIEWPORT_HEIGHT / VIEWPORT_WIDTH));
   canvas.style.width = `${dimension}px`;
-  canvas.style.height = `${Math.ceil(dimension * dim.viewport.h / dim.viewport.w)}px`;
-  canvas.style.margin = `${Math.ceil(dimension * dim.viewport.h / dim.viewport.w / -2)}px ${dimension / -2}px`;
+  canvas.style.height = `${Math.ceil(dimension * VIEWPORT_HEIGHT / VIEWPORT_WIDTH)}px`;
+  canvas.style.margin = `${Math.ceil(dimension * VIEWPORT_HEIGHT / VIEWPORT_WIDTH / -2)}px ${dimension / -2}px`;
 
   ctx = canvas.getContext("2d");
 
