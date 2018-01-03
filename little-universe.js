@@ -65,7 +65,7 @@ const loadImage = (url, object) => {
 
 const INTERVAL = 16;
 // Minimum number of pixels from player origin to edge of viewport before scrolling
-const VIEWPORT_EDGE_BUFFER = 16;
+const VIEWPORT_EDGE_BUFFER = 200;
 // keys are (horizontal,vertical) where (1,1) is down/right
 // values are degrees, where 0 is straight up
 const DIRECTIONS = {
@@ -115,8 +115,26 @@ const game = {
   viewport: {
     x: 222,
     y: 78,
-    zone: 0
+    zone: "outside"
   },
+  zones: [
+    {
+      id: "outside",
+      color: "green",
+      bounds: [
+        { x: 10, y: 10 },
+        { x: 3000, y: 1800 }
+      ]
+    },
+    {
+      id: "bakery",
+      color: "pink",
+      bounds: [
+        { x: 10, y: 10 },
+        { x: 3000, y: 1900 }
+      ]
+    }
+  ],
   entities: [
     {
       id: "player",
@@ -124,7 +142,7 @@ const game = {
       image: null,
       x: 600,
       y: 800,
-      zone: 0,
+      zone: "outside",
       speed: 0,
       maxSpeed: 10,
       direction: 90,
@@ -141,7 +159,7 @@ const game = {
       image: null,
       x: 690,
       y: 500,
-      zone: 0,
+      zone: "outside",
       width: 474,
       height: 608,
       originX: 240,
@@ -154,7 +172,7 @@ const game = {
       inherit: "bush1",
       x: 2590,
       y: 600,
-      zone: 0
+      zone: "outside"
     },
     {
       id: "lemurs",
@@ -162,7 +180,7 @@ const game = {
       image: null,
       x: 1400,
       y: 1200,
-      zone: 1,
+      zone: "bakery",
       width: 477,
       height: 704,
       originX: 240,
@@ -180,7 +198,7 @@ const game = {
       image: null,
       x: 1700,
       y: 600,
-      zone: 0,
+      zone: "outside",
       width: 1106,
       height: 851,
       originX: 563,
@@ -192,7 +210,7 @@ const game = {
       id: "storefront-door",
       x: 1576,
       y: 750,
-      zone: 0,
+      zone: "outside",
       width: 240,
       height: 20,
       originX: 120,
@@ -202,7 +220,7 @@ const game = {
       warp: {
         x: 1300,
         y: 1800,
-        zone: 1
+        zone: "bakery"
       }
     },
     {
@@ -211,7 +229,7 @@ const game = {
       imageURL: "interior.png",
       x: 1300,
       y: 1860,
-      zone: 1,
+      zone: "bakery",
       width: 1141,
       height: 82,
       originX: 570,
@@ -221,7 +239,7 @@ const game = {
       warp: {
         x: 1593,
         y: 830,
-        zone: 0
+        zone: "outside"
       }
     }
   ]
@@ -241,8 +259,12 @@ const tick = function() {
   setTimeout(tick, INTERVAL);
 };
 
-const getCollisions = (a) => {
+const getCollisions = (zone, a) => {
   return game.entities.filter((entity) => {
+    if (entity.zone !== zone) {
+      return false;
+    }
+
     const b = getEntityBounds(entity);
 
     // If one rectangle is to the side of other
@@ -260,12 +282,38 @@ const getCollisions = (a) => {
 };
 
 const getPotentialCollisions = (entity) => {
-  return getCollisions(getBounds(
+  const bounds = getBounds(
     entity.x + entity.speedX,
     entity.y + entity.speedY,
     entity.footprintW,
     entity.footprintH
-  )).filter(e => e.id != entity.id);
+  );
+
+  const result = getCollisions(entity.zone, bounds).filter(e => e.id != entity.id);
+
+  if (isOutOfZone(bounds)) {
+    result.push(getZone());
+  }
+
+
+  return result;
+};
+
+const isOutOfZone = (entityBounds) => {
+  const { bounds: zoneBounds } = getZone();
+  if (!zoneBounds) {
+    return false;
+  }
+
+  if (entityBounds[0].x < zoneBounds[0].x || entityBounds[1].x > zoneBounds[1].x) {
+    return true;
+  }
+
+  if (entityBounds[0].y < zoneBounds[0].y || entityBounds[1].y > zoneBounds[1].y) {
+    return true;
+  }
+
+  return false;
 };
 
 const getEntityBounds = (entity) => {
@@ -354,8 +402,12 @@ const applySpeed = (entity) => {
 
       if (entity.warp) {
         const player = game.entities[0];
+        const offsetX = player.x - game.viewport.x;
+        const offsetY = player.y - game.viewport.y;
         Object.assign(player, entity.warp);
         game.viewport.zone = player.zone;
+        game.viewport.x = player.x - offsetX;
+        game.viewport.y = player.y - offsetY;
       }
     });
 
@@ -407,13 +459,19 @@ const getSafeAreaCoords = () => {
   return { x, y, width, height };
 };
 
+const drawZone = () => {
+  const { color } = getZone();
+  ctx.fillStyle = color || "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+};
+
 const drawEntities = () => {
   // TODO: Don't draw entities that are out of the viewport
 
   const { entities, viewport } = game;
 
   sortBy(entities, "y").forEach((entity) => {
-    if (!entity.zone == game.viewport.zone) {
+    if (entity.zone !== game.viewport.zone) {
       return;
     }
 
@@ -467,9 +525,23 @@ const drawEntityDebug = (entity) => {
   }
 }
 
+const getZone = () => (game.zones.filter(z => z.id === game.viewport.zone)[0]);
+
 const drawDiagnostics = () => {
   if (!keysDown.debug) {
     return;
+  }
+
+  const { bounds } = getZone();
+
+  if (bounds) {
+    ctx.strokeStyle = "orange";
+    ctx.strokeRect(
+      (bounds[0].x - game.viewport.x) * SCALE_FACTOR,
+      (bounds[0].y - game.viewport.y) * SCALE_FACTOR,
+      (bounds[1].x - bounds[0].x) * SCALE_FACTOR,
+      (bounds[1].y - bounds[0].y) * SCALE_FACTOR
+    );
   }
 
   const output = `FPS TODO - (${Math.round(game.entities[0].x)}, ${Math.round(game.entities[0].y)}) - (${game.viewport.x}, ${game.viewport.y})`;
@@ -487,8 +559,7 @@ const drawDiagnostics = () => {
 }
 
 const draw = () => {
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawZone();
 
   drawEntities();
 
