@@ -115,18 +115,22 @@ const game = {
   zones: [
     {
       id: "outside",
-      color: "green",
+      color: "#9bd16e",
+      imageURL: "outside.png",
+      scale: 3,
       bounds: [
-        { x: 10, y: 10 },
-        { x: 3000, y: 1800 }
+        { x: 100, y: 100 },
+        { x: 8900, y: 8900 }
       ]
     },
     {
       id: "bakery",
-      color: "pink",
+      color: "#000000",
+      imageURL: "bakery.png",
+      scale: 1,
       bounds: [
-        { x: 10, y: 10 },
-        { x: 3000, y: 1900 }
+        { x: 188, y: 204 },
+        { x: 2827, y: 2853 }
       ]
     }
   ],
@@ -135,8 +139,8 @@ const game = {
       id: "player",
       imageURL: "rabbit-sprites.png",
       image: null,
-      x: 600,
-      y: 800,
+      x: 2715,
+      y: 4287,
       zone: "outside",
       speed: 0,
       maxSpeed: 10,
@@ -158,8 +162,8 @@ const game = {
       id: "bush1",
       imageURL: "bush.png",
       image: null,
-      x: 690,
-      y: 500,
+      x: 3005,
+      y: 3800,
       zone: "outside",
       width: 474,
       height: 608,
@@ -171,15 +175,15 @@ const game = {
     {
       id: "bush2",
       inherit: "bush1",
-      x: 2590,
-      y: 600,
+      x: 4705,
+      y: 3789,
       zone: "outside"
     },
     {
       id: "lemurs",
       imageURL: "lemurs.png",
       image: null,
-      x: 1400,
+      x: 1900,
       y: 1200,
       zone: "bakery",
       width: 477,
@@ -197,8 +201,8 @@ const game = {
       id: "storefront",
       imageURL: "storefront.png",
       image: null,
-      x: 1700,
-      y: 600,
+      x: 3815,
+      y: 4000,
       zone: "outside",
       width: 1106,
       height: 851,
@@ -209,8 +213,8 @@ const game = {
     },
     {
       id: "storefront-door",
-      x: 1576,
-      y: 750,
+      x: 3691,
+      y: 4143,
       zone: "outside",
       width: 240,
       height: 20,
@@ -219,27 +223,25 @@ const game = {
       footprintW: 240,
       footprintH: 20,
       warp: {
-        x: 1300,
-        y: 1800,
+        x: 1500,
+        y: 2830,
         zone: "bakery"
       }
     },
     {
       id: "storefront-door-interior",
-      image: null,
-      imageURL: "interior.png",
-      x: 1300,
-      y: 1860,
+      x: 1500,
+      y: 2870,
       zone: "bakery",
-      width: 1141,
-      height: 82,
-      originX: 570,
-      originY: 40,
-      footprintW: 1141,
-      footprintH: 82,
+      width: 350,
+      height: 40,
+      originX: 150,
+      originY: 20,
+      footprintW: 300,
+      footprintH: 40,
       warp: {
-        x: 1593,
-        y: 830,
+        x: 3738,
+        y: 4217,
         zone: "outside"
       }
     }
@@ -427,9 +429,23 @@ const setViewport = () => {
 };
 
 const drawZone = () => {
-  const { color } = getZone();
-  ctx.fillStyle = color || "white";
+  const zone = getZone();
+  ctx.fillStyle = zone.color || "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (zone.image) {
+    ctx.drawImage(
+      zone.image,
+      0,
+      0,
+      zone.image.width,
+      zone.image.height,
+      Math.floor(game.viewport.x * -1 * SCALE_FACTOR),
+      Math.floor(game.viewport.y * -1 * SCALE_FACTOR),
+      Math.floor(zone.image.width * zone.scale * SCALE_FACTOR),
+      Math.floor(zone.image.height * zone.scale * SCALE_FACTOR)
+    );
+  }
 };
 
 const drawEntities = () => {
@@ -642,6 +658,14 @@ addEventListener("load", function() {
     }
 
     loadImage(entity.imageURL, entity);
+  });
+
+  game.zones.forEach((zone) => {
+    if (!zone.imageURL) {
+      return;
+    }
+
+    loadImage(zone.imageURL, zone);
   });
 
   tick();
