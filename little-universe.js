@@ -1,9 +1,9 @@
- const sortBy = function(array, property) {
+ const sortBy = function(array, callback) {
   const items = array.map((item, index) => (
     {
       item,
       index,
-      criteria: item[property]
+      criteria: callback(item)
     }
   ));
 
@@ -133,7 +133,7 @@ const game = {
   entities: [
     {
       id: "player",
-      imageURL: "rabbit.png",
+      imageURL: "rabbit-sprites.png",
       image: null,
       x: 600,
       y: 800,
@@ -147,6 +147,12 @@ const game = {
       originY: 350,
       footprintW: 120,
       footprintH: 50,
+      poses: [
+        {
+          speed: 0,
+          directions: [[0], [1], [2], [3], [4], [5], [6], [7]]
+        }
+      ]
     },
     {
       id: "bush1",
@@ -376,7 +382,7 @@ const readControls = () => {
   setSpeed(
     user,
     (key === "0,0" ? 0 : user.maxSpeed),
-    (Object.keys(DIRECTIONS).indexOf(key) > -1 ? DIRECTIONS[key] : 90)
+    (Object.keys(DIRECTIONS).indexOf(key) > -1 ? DIRECTIONS[key] : user.direction)
   );
 };
 
@@ -431,18 +437,26 @@ const drawEntities = () => {
 
   const { entities, viewport } = game;
 
-  sortBy(entities, "y").forEach((entity) => {
+  sortBy(entities, e => e.y).forEach((entity) => {
     if (entity.zone !== game.viewport.zone) {
       return;
     }
 
     if (entity.image) {
-      const tileIndex = 0;
+      let tileIndex = 0;
+
+      if (entity.poses) {
+        const speedPoses = sortBy(entity.poses, p => entity.speed - p.speed)[0];
+        const directionInterval = 360 / speedPoses.directions.length;
+        const tiles = speedPoses.directions[Math.floor(entity.direction / directionInterval)];
+        const frameIndex = 0;
+        tileIndex = tiles[frameIndex]
+      }
 
       ctx.drawImage(
         entity.image,
+        tileIndex * entity.width,
         0,
-        tileIndex * entity.height,
         entity.width,
         entity.height,
         Math.floor((entity.x - entity.originX - viewport.x) * SCALE_FACTOR),
@@ -544,6 +558,10 @@ const handleText = (entity) => {
     return;
   }
 
+  if (entity.message.appearedAt + (TEXT_SPEED * entity.message.text.length) + 2000 < game.current) {
+    return;
+  }
+
   const text = entity.message.text.substring(
     0,
     Math.ceil((game.current - entity.message.appearedAt) / TEXT_SPEED)
@@ -563,7 +581,7 @@ const handleText = (entity) => {
   const h = 100;
   const padding = 10;
 
-  ctx.font = "12px Helvetica";
+  ctx.font = "15px Helvetica";
   ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = "white";
